@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chord Transposer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎸%3C/text%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Bricolage+Grotesque:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e9eef5;--panel:#ffffff;--sheet:#fffefb;--ink:#17202b;--muted:#5b6a7c;--line:#cfd8e3;--chord:#0a55c8;--accent:#0a55c8;--accent-ink:#fff;--sec:#9a4f00;--shadow:0 8px 30px rgba(20,40,70,.12)}
+:root[data-theme="dark"]{--bg:#0b0f15;--panel:#151b24;--sheet:#10161e;--ink:#e8eef6;--muted:#8d9bad;--line:#27313f;--chord:#6fc3ff;--accent:#6fc3ff;--accent-ink:#06121e;--sec:#f2b866;--shadow:0 8px 30px rgba(0,0,0,.5)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]):not([data-theme="dark"]){--bg:#0b0f15;--panel:#151b24;--sheet:#10161e;--ink:#e8eef6;--muted:#8d9bad;--line:#27313f;--chord:#6fc3ff;--accent:#6fc3ff;--accent-ink:#06121e;--sec:#f2b866;--shadow:0 8px 30px rgba(0,0,0,.5)}}
+*{box-sizing:border-box}
+html{color-scheme:light dark}
+:root[data-theme="light"]{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,sans-serif;padding:env(safe-area-inset-top,0px) 0 0}
+.wrap{max-width:900px;margin:0 auto;padding:18px 14px calc(120px + env(safe-area-inset-bottom,0px))}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{font-size:clamp(1.9rem,6vw,2.8rem);margin:0;font-weight:800;letter-spacing:-.03em;line-height:1}
+.sub{color:var(--muted);margin:6px 0 0;font-weight:500}
+button{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:9px 14px;cursor:pointer;min-height:42px}
+button:hover{border-color:var(--accent)}
+button:active{transform:translateY(1px)}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.hbtns{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.langsw{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel)}
+.langsw button{border:0;border-radius:0;min-width:46px;padding:9px 12px}
+.langsw button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.bar{display:flex;flex-wrap:wrap;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px;position:sticky;top:calc(8px + env(safe-area-inset-top,0px));z-index:5;box-shadow:var(--shadow)}
+.group{display:flex;align-items:center;gap:6px}
+.group+.group{padding-left:10px;border-left:1px solid var(--line)}
+.step{width:46px;font-size:1.3rem;padding:0}
+.shift{font-family:"IBM Plex Mono",ui-monospace,monospace;min-width:104px;text-align:center;font-weight:600;font-size:.95rem}
+.spacer{flex:1}
+.sheet{background:var(--sheet);border:1px solid var(--line);border-radius:16px;margin-top:14px;padding:22px 20px;overflow-x:auto;box-shadow:var(--shadow)}
+textarea{width:100%;min-height:60vh;resize:vertical;border:0;background:transparent;color:var(--ink);font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:14px;line-height:1.55;padding:0}
+textarea:focus{outline:none}
+pre{margin:0;font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:var(--fs,14px);line-height:1.6;white-space:pre}
+.c{color:var(--chord);font-weight:600}
+.s{color:var(--sec);font-weight:600}
+.hint{color:var(--muted);font-size:.9rem;margin:12px 4px}
+.scroller{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 10px 8px 8px;box-shadow:var(--shadow);z-index:6;max-width:calc(100% - 20px)}
+.scroller button.play{border-radius:999px;width:50px;height:50px;padding:0;font-size:1.2rem}
+.scroller label{display:flex;align-items:center;gap:8px;color:var(--muted);font-weight:600;font-size:.9rem}
+input[type=range]{width:min(34vw,170px);accent-color:var(--accent)}
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:7}
+.toast.on{opacity:1}
+.title{display:block;width:100%;margin-top:14px;font:inherit;font-weight:700;font-size:1.15rem;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 14px}
+.title::placeholder{color:var(--muted);font-weight:500}
+dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:16px;width:min(560px,92vw);padding:16px;box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+.dlgh{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:1.1rem}
+#liblist{list-style:none;margin:0;padding:0;max-height:60vh;overflow:auto}
+#liblist li{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
+#liblist .name{flex:1;min-width:0}
+#liblist .name b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#liblist .name span{color:var(--muted);font-size:.85rem}
+.empty{color:var(--muted);padding:10px 0}
+.mini{display:none;position:fixed;top:calc(8px + env(safe-area-inset-top,0px));right:8px;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:var(--shadow);z-index:6;max-width:calc(100% - 16px);flex-wrap:wrap;justify-content:flex-end}
+.mini button{min-height:38px;padding:6px 12px}
+.mini .ms{font-family:"IBM Plex Mono",ui-monospace,monospace;font-weight:600;min-width:34px;text-align:center}
+body.focus header,body.focus .bar,body.focus .title,body.focus .hint{display:none}
+body.focus .mini{display:flex}
+body.focus .wrap{padding-top:64px;max-width:1100px}
+body.focus .sheet{padding:22px 18px}
+.hide{display:none}
+@media (max-width:560px){.group+.group{padding-left:0;border-left:0}.shift{min-width:92px}}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}button:active{transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 data-i18n="appName">Chord Transposer</h1>
+      <p class="sub" data-i18n="sub">Paste a chord sheet, change the key, share a link.</p>
+    </div>
+    <div class="hbtns">
+      <div class="langsw" role="group" data-i18n-aria="langAria" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true" lang="en" title="English">EN</button>
+        <button type="button" data-lang="id" aria-pressed="false" lang="id" title="Bahasa Indonesia">ID</button>
+      </div>
+      <button id="theme" data-i18n-aria="themeAria" aria-label="Switch colour theme">Theme: Auto</button>
+    </div>
+  </header>
+
+  <div class="bar" role="toolbar" data-i18n-aria="controls" aria-label="Controls">
+    <div class="group">
+      <button id="down" class="step" data-i18n-aria="down" aria-label="Down one semitone">−</button>
+      <span id="shift" class="shift" aria-live="polite">0 semitones</span>
+      <button id="up" class="step" data-i18n-aria="up" aria-label="Up one semitone">+</button>
+      <button id="reset" data-i18n="reset">Reset</button>
+    </div>
+    <div class="group">
+      <button id="acc" data-i18n-title="accTitle" title="Switch between sharps and flats">Sharps ♯</button>
+      <button id="smaller" data-i18n-aria="smaller" aria-label="Smaller text">A−</button>
+      <button id="bigger" data-i18n-aria="bigger" aria-label="Bigger text">A+</button>
+      <button id="full" data-i18n-title="fullTitle" title="Hide everything except the song">Full screen</button>
+    </div>
+    <span class="spacer"></span>
+    <div class="group">
+      <button id="new" data-i18n="newB" data-i18n-title="newTitle" title="Start a blank sheet">New</button>
+      <button id="save" class="primary" data-i18n="saveB" data-i18n-title="saveTitle" title="Save this song in this browser">Save</button>
+      <button id="libbtn" data-i18n="libB" data-i18n-title="libTitle" title="Load a saved song">Library</button>
+    </div>
+    <div class="group">
+      <button id="open" data-i18n="openB" data-i18n-title="openTitle" title="Open a .txt chord sheet from your device">Open file</button>
+      <button id="dl" data-i18n="dlB" data-i18n-title="dlTitle" title="Download the sheet, in the current key, as a .txt file">Download</button>
+      <button id="mode">Edit text</button>
+      <button id="share" class="primary" data-i18n="share">Copy share link</button>
+      <input id="file" type="file" accept=".txt,.text,text/plain" class="hide">
+    </div>
+  </div>
+
+  <input id="title" class="title" type="text" maxlength="80" data-i18n-ph="songTitle" data-i18n-aria="songTitle" placeholder="Song title" aria-label="Song title">
+  <div class="sheet">
+    <textarea id="input" class="hide" spellcheck="false" data-i18n-aria="sheetText" aria-label="Chord sheet text"></textarea>
+    <pre id="out"></pre>
+  </div>
+  <p class="hint" id="hint">Chord lines are detected automatically. Lyrics stay untouched.</p>
+</div>
+
+<div class="mini" role="toolbar" data-i18n-aria="fullCtl" aria-label="Full screen controls">
+  <button id="mdown" data-i18n-aria="down" aria-label="Down one semitone">−</button>
+  <span id="mshift" class="ms" aria-live="polite">0</span>
+  <button id="mup" data-i18n-aria="up" aria-label="Up one semitone">+</button>
+  <button id="msmaller" data-i18n-aria="smaller" aria-label="Smaller text">A−</button>
+  <button id="mbigger" data-i18n-aria="bigger" aria-label="Bigger text">A+</button>
+  <button id="mexit" class="primary" data-i18n="exit">Exit</button>
+</div>
+<div class="scroller" role="group" data-i18n-aria="autoscroll" aria-label="Autoscroll">
+  <button id="play" class="play primary" aria-label="Start autoscroll">▶</button>
+  <label><span data-i18n="speed">Speed</span> <input id="speed" type="range" min="1" max="20" value="10" data-i18n-aria="speedAria" aria-label="Autoscroll speed"></label>
+</div>
+<dialog id="lib" data-i18n-aria="savedSongs" aria-label="Saved songs">
+  <div class="dlgh"><strong data-i18n="savedSongs">Saved songs</strong><button id="libclose" data-i18n="close">Close</button></div>
+  <ul id="liblist"></ul>
+  <p class="hint" data-i18n="libHint">Songs are stored in this browser on this device. To move one elsewhere, use Copy share link or Download.</p>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const SHARP=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const FLAT=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const IDX={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11};
+const CHORD=/^([A-G][#b]?)((?:maj|min|dim|aug|sus|add|m|M|\+|°|ø|-|\d|#|b|\(|\))*)(?:\/([A-G][#b]?))?$/;
+const NEUTRAL=/^(x\d+|\||\/|-|%|N\.?C\.?)$/i;
+
+/* ---------- languages: English + Bahasa Indonesia ---------- */
+const LANGS=['en','id'];
+const SAMPLES={
+en:`[Verse]
+C           G          Am        F
+Paste your own chord sheet here, then press + or −
+C           G          F
+Chords sit above the words they belong to
+
+[Chorus]
+Am      F        C      G
+Share the link and friends can change the key too
+
+Tip: press the play button below to autoscroll.
+Add more lines so there is something to scroll.`,
+id:`[Bait]
+C           G          Am        F
+Tempel chord lagumu di sini, lalu tekan + atau −
+C           G          F
+Chord ada di atas kata yang dimaksud
+
+[Reff]
+Am      F        C      G
+Bagikan tautannya, temanmu bisa ganti nada dasar juga
+
+Tips: tekan tombol putar di bawah untuk gulir otomatis.
+Tambahkan baris lagi supaya ada yang bisa digulir.`
+};
+const STR={
+en:{
+  appName:'Chord Transposer',
+  sub:'Paste a chord sheet, change the key, share a link.',
+  hint_default:'Chord lines are detected automatically. Lyrics stay untouched.',
+  hint_shared:'Shared sheet. Use + and − to change the key, or Edit text to make your own copy.',
+  hint_new:'Paste your chords and lyrics, then press Done.',
+  langAria:'Language',
+  themeAria:'Switch colour theme',
+  theme:n=>'Theme: '+({auto:'Auto',light:'Light',dark:'Dark'})[n],
+  controls:'Controls',
+  down:'Down one semitone', up:'Up one semitone',
+  reset:'Reset',
+  accTitle:'Switch between sharps and flats',
+  sharps:'Sharps ♯', flats:'Flats ♭',
+  smaller:'Smaller text', bigger:'Bigger text',
+  fullTitle:'Hide everything except the song',
+  full:'Full screen', exitFull:'Exit full screen',
+  newB:'New', newTitle:'Start a blank sheet',
+  saveB:'Save', saveTitle:'Save this song in this browser',
+  libB:'Library', libTitle:'Load a saved song',
+  openB:'Open file', openTitle:'Open a .txt chord sheet from your device',
+  dlB:'Download', dlTitle:'Download the sheet, in the current key, as a .txt file',
+  edit:'Edit text', done:'Done',
+  share:'Copy share link',
+  songTitle:'Song title', sheetText:'Chord sheet text',
+  fullCtl:'Full screen controls', exit:'Exit',
+  autoscroll:'Autoscroll', speed:'Speed', speedAria:'Autoscroll speed',
+  playStart:'Start autoscroll', playPause:'Pause autoscroll',
+  savedSongs:'Saved songs', close:'Close',
+  libHint:'Songs are stored in this browser on this device. To move one elsewhere, use Copy share link or Download.',
+  libEmpty:'Nothing saved yet. Press Save to keep a song here.',
+  load:'Load', remove:'Delete',
+  savedOn:d=>'Saved '+d,
+  shift:n=>(n>0?'+':'')+n+' semitone'+(Math.abs(n)===1?'':'s'),
+  textSize:n=>'Text size '+n,
+  nothing:'Nothing to save yet',
+  untitled:'Untitled song',
+  savedTitle:s=>'Saved “'+s+'”',
+  loaded:s=>'Loaded “'+s+'”',
+  blocked:'This browser blocked saving',
+  unsaved:'You have unsaved changes. Continue without saving?',
+  deleteConfirm:s=>'Delete “'+s+'”? This cannot be undone.',
+  downloaded:n=>'Saved as '+n,
+  opened:f=>'Opened '+f,
+  couldNotOpen:'Could not open that file',
+  reachedEnd:'Reached the end',
+  linkCopied:'Link copied',
+  copyPrompt:'Copy this link:',
+  shortFail:'Short link failed, made a long link instead',
+  linkNotLoaded:'That link could not be loaded',
+  linkNotRead:'That link could not be read'
+},
+id:{
+  appName:'Transpose Chord',
+  sub:'Tempel chord lagu, ganti nada dasar, lalu bagikan tautannya.',
+  hint_default:'Baris chord terdeteksi otomatis. Lirik tidak diubah.',
+  hint_shared:'Lembar yang dibagikan. Pakai + dan − untuk mengganti nada dasar, atau Ubah teks untuk membuat salinanmu sendiri.',
+  hint_new:'Tempel chord dan liriknya, lalu tekan Selesai.',
+  langAria:'Bahasa',
+  themeAria:'Ganti tema warna',
+  theme:n=>'Tema: '+({auto:'Otomatis',light:'Terang',dark:'Gelap'})[n],
+  controls:'Kontrol',
+  down:'Turun satu semiton', up:'Naik satu semiton',
+  reset:'Atur ulang',
+  accTitle:'Ganti antara kres dan mol',
+  sharps:'Kres ♯', flats:'Mol ♭',
+  smaller:'Teks lebih kecil', bigger:'Teks lebih besar',
+  fullTitle:'Sembunyikan semua kecuali lagu',
+  full:'Layar penuh', exitFull:'Keluar layar penuh',
+  newB:'Baru', newTitle:'Mulai lembar kosong',
+  saveB:'Simpan', saveTitle:'Simpan lagu ini di browser ini',
+  libB:'Koleksi', libTitle:'Buka lagu yang tersimpan',
+  openB:'Buka file', openTitle:'Buka lembar chord .txt dari perangkatmu',
+  dlB:'Unduh', dlTitle:'Unduh lembar ini, dengan nada dasar saat ini, sebagai file .txt',
+  edit:'Ubah teks', done:'Selesai',
+  share:'Salin tautan bagikan',
+  songTitle:'Judul lagu', sheetText:'Teks lembar chord',
+  fullCtl:'Kontrol layar penuh', exit:'Keluar',
+  autoscroll:'Gulir otomatis', speed:'Kecepatan', speedAria:'Kecepatan gulir otomatis',
+  playStart:'Mulai gulir otomatis', playPause:'Jeda gulir otomatis',
+  savedSongs:'Lagu tersimpan', close:'Tutup',
+  libHint:'Lagu disimpan di browser ini pada perangkat ini. Untuk memindahkannya, gunakan Salin tautan bagikan atau Unduh.',
+  libEmpty:'Belum ada lagu tersimpan. Tekan Simpan untuk menyimpan lagu di sini.',
+  load:'Buka', remove:'Hapus',
+  savedOn:d=>'Disimpan '+d,
+  shift:n=>(n>0?'+':'')+n+' semiton',
+  textSize:n=>'Ukuran teks '+n,
+  nothing:'Belum ada yang bisa disimpan',
+  untitled:'Lagu tanpa judul',
+  savedTitle:s=>'Tersimpan “'+s+'”',
+  loaded:s=>'Dibuka “'+s+'”',
+  blocked:'Browser ini memblokir penyimpanan',
+  unsaved:'Ada perubahan yang belum disimpan. Lanjut tanpa menyimpan?',
+  deleteConfirm:s=>'Hapus “'+s+'”? Tindakan ini tidak bisa dibatalkan.',
+  downloaded:n=>'Disimpan sebagai '+n,
+  opened:f=>'Membuka '+f,
+  couldNotOpen:'File itu tidak bisa dibuka',
+  reachedEnd:'Sudah sampai akhir',
+  linkCopied:'Tautan disalin',
+  copyPrompt:'Salin tautan ini:',
+  shortFail:'Tautan pendek gagal, dibuat tautan panjang',
+  linkNotLoaded:'Tautan itu tidak bisa dimuat',
+  linkNotRead:'Tautan itu tidak bisa dibaca'
+}
+};
+function detectLang(){
+  try{const s=localStorage.getItem('ct-lang');if(LANGS.includes(s)) return s}catch(e){}
+  const n=(navigator.languages&&navigator.languages[0])||navigator.language||'en';
+  return /^(id|in|ms)\b/i.test(n)?'id':'en';
+}
+let lang=detectLang();
+const t=(k,...a)=>{const v=(STR[lang][k]!==undefined?STR[lang][k]:STR.en[k]);return typeof v==='function'?v(...a):v};
+
+/* ---- Short links (optional): paste your Supabase details here. Leave empty to use long links. ---- */
+const SUPABASE_URL='';   // e.g. https://abcdxyz.supabase.co
+const SUPABASE_KEY='';   // the public "anon" or "publishable" key
+const sbOn=()=>!!(SUPABASE_URL&&SUPABASE_KEY);
+const sbHeaders=()=>{const h={apikey:SUPABASE_KEY,'Content-Type':'application/json'};if(SUPABASE_KEY.startsWith('eyJ'))h.Authorization='Bearer '+SUPABASE_KEY;return h};
+function shortId(){const a='abcdefghijkmnpqrstuvwxyz23456789',r=crypto.getRandomValues(new Uint8Array(7));return [...r].map(x=>a[x%a.length]).join('')}
+
+const $=id=>document.getElementById(id);
+let text=SAMPLES[lang], shift=0, flats=false, editing=false, fs=14, hintKey='hint_default';
+try{fs=Math.max(10,Math.min(48,+localStorage.getItem('ct-fs')||14))}catch(e){}
+function setHint(k){hintKey=k;$('hint').textContent=t(k)}
+
+/* ---------- theme (Auto → Light → Dark) ---------- */
+const THEMES=['auto','light','dark'];
+function applyTheme(th){
+  if(th==='auto') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme',th);
+  $('theme').dataset.t=th;
+  $('theme').textContent=t('theme',th);
+}
+let savedTheme='auto';
+try{savedTheme=localStorage.getItem('ct-theme')||'auto'}catch(e){}
+applyTheme(THEMES.includes(savedTheme)?savedTheme:'auto');
+$('theme').onclick=()=>{
+  const n=THEMES[(THEMES.indexOf($('theme').dataset.t)+1)%3];
+  applyTheme(n);
+  try{localStorage.setItem('ct-theme',n)}catch(e){}
+};
+
+/* ---------- apply language to the page ---------- */
+function applyLang(){
+  document.documentElement.lang=lang;
+  document.title=t('appName');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{e.textContent=t(e.dataset.i18n)});
+  document.querySelectorAll('[data-i18n-title]').forEach(e=>{e.title=t(e.dataset.i18nTitle)});
+  document.querySelectorAll('[data-i18n-aria]').forEach(e=>{e.setAttribute('aria-label',t(e.dataset.i18nAria))});
+  document.querySelectorAll('[data-i18n-ph]').forEach(e=>{e.placeholder=t(e.dataset.i18nPh)});
+  document.querySelectorAll('.langsw button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lang===lang?'true':'false'));
+  applyTheme($('theme').dataset.t||'auto');
+  $('hint').textContent=t(hintKey);
+  $('mode').textContent=editing?t('done'):t('edit');
+  $('full').textContent=document.body.classList.contains('focus')?t('exitFull'):t('full');
+  $('play').setAttribute('aria-label',playing?t('playPause'):t('playStart'));
+  if($('lib').open) renderLib();
+}
+function setLang(l){
+  if(!LANGS.includes(l)||l===lang) return;
+  const wasDirty=isDirty();
+  const cur=editing?($('input').value||text):text;
+  lang=l;
+  try{localStorage.setItem('ct-lang',l)}catch(e){}
+  // an untouched sample sheet follows the language
+  if(cur===SAMPLES.en||cur===SAMPLES.id){text=SAMPLES[l];if(editing)$('input').value=text}
+  applyLang();
+  render();
+  if(!wasDirty) markClean();
+}
+document.querySelectorAll('.langsw button').forEach(b=>{b.onclick=()=>setLang(b.dataset.lang)});
+
+/* ---------- transposing ---------- */
+function isChordLine(line){
+  const w=line.trim().split(/\s+/).filter(Boolean);
+  if(!w.length) return false;
+  let n=0;
+  for(const x of w){ if(CHORD.test(x)) n++; else if(!NEUTRAL.test(x)) return false; }
+  return n>0;
+}
+const tr=note=>(flats?FLAT:SHARP)[(IDX[note]+shift+1200)%12];
+function transChord(w){
+  const m=w.match(CHORD); if(!m) return w;
+  return tr(m[1])+m[2]+(m[3]?'/'+tr(m[3]):'');
+}
+function transLine(line){
+  const parts=line.split(/(\s+)/); let carry=0, out='';
+  for(const p of parts){
+    if(!p) continue;
+    if(/^\s+$/.test(p)){
+      let len=p.length+carry; carry=0;
+      if(len<1){carry=len-1;len=1}
+      out+=' '.repeat(len);
+    } else {
+      const n=CHORD.test(p)?transChord(p):p;
+      carry+=p.length-n.length; out+=n;
+    }
+  }
+  return out;
+}
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function render(){
+  $('out').innerHTML=text.split('\n').map(line=>{
+    if(/^\s*\[.*\]\s*$/.test(line)) return '<span class="s">'+esc(line)+'</span>';
+    if(isChordLine(line)) return '<span class="c">'+esc(shift?transLine(line):line)+'</span>';
+    return esc(line);
+  }).join('\n');
+  $('out').style.setProperty('--fs',fs+'px');
+  $('shift').textContent=t('shift',shift);
+  $('acc').textContent=flats?t('flats'):t('sharps');
+  $('mshift').textContent=(shift>0?'+':'')+shift;
+}
+function setMode(e){
+  editing=e; stopScroll();
+  $('input').classList.toggle('hide',!e);
+  $('out').classList.toggle('hide',e);
+  $('mode').textContent=e?t('done'):t('edit');
+  if(e){$('input').value=text;$('input').focus()}
+  else{text=$('input').value||text;render()}
+}
+$('mode').onclick=()=>setMode(!editing);
+$('input').addEventListener('input',()=>{text=$('input').value});
+$('up').onclick=()=>{shift=((shift+1+5)%12)-5;if(editing)setMode(false);render()};
+$('down').onclick=()=>{shift=((shift-1+5+12)%12)-5;if(editing)setMode(false);render()};
+$('reset').onclick=()=>{shift=0;render()};
+$('acc').onclick=()=>{flats=!flats;render()};
+function setFs(n){fs=Math.max(10,Math.min(48,n));try{localStorage.setItem('ct-fs',fs)}catch(e){}render();toast(t('textSize',fs))}
+$('bigger').onclick=()=>setFs(fs+2);
+$('smaller').onclick=()=>setFs(fs-2);
+
+/* ---------- save / open files ---------- */
+function transposedText(){
+  if(editing) text=$('input').value||text;
+  return text.split('\n').map(l=>shift&&isChordLine(l)?transLine(l):l).join('\n');
+}
+/* ---------- library: save / new / load, stored in this browser ---------- */
+const LIB_KEY='ct-library';
+let lib=[], curId=null, snap='';
+try{lib=JSON.parse(localStorage.getItem(LIB_KEY))||[]}catch(e){lib=[]}
+function persist(){
+  try{localStorage.setItem(LIB_KEY,JSON.stringify(lib));return true}
+  catch(e){toast(t('blocked'));return false}
+}
+function state(){
+  if(editing) text=$('input').value||text;
+  return {title:$('title').value.trim(),text,shift,flats};
+}
+const markClean=()=>{snap=JSON.stringify(state())};
+const isDirty=()=>JSON.stringify(state())!==snap;
+const okToLeave=()=>!isDirty()||confirm(t('unsaved'));
+
+$('save').onclick=()=>{
+  const s=state();
+  if(!s.text.trim()){toast(t('nothing'));return}
+  if(!s.title){s.title=t('untitled');$('title').value=s.title}
+  s.updated=Date.now();
+  const i=lib.findIndex(x=>x.id===curId);
+  if(i>=0){lib[i]={...lib[i],...s}}
+  else{curId=Date.now().toString(36)+Math.random().toString(36).slice(2,6);lib.push({id:curId,...s})}
+  if(persist()){markClean();toast(t('savedTitle',s.title))}
+};
+$('new').onclick=()=>{
+  if(!okToLeave()) return;
+  curId=null;text='';shift=0;flats=false;$('title').value='';
+  history.replaceState(null,'',location.pathname);
+  setHint('hint_new');
+  setMode(true);render();markClean();
+};
+function renderLib(){
+  const ul=$('liblist');ul.innerHTML='';
+  if(!lib.length){ul.innerHTML='<li class="empty"></li>';ul.firstChild.textContent=t('libEmpty');return}
+  [...lib].sort((a,b)=>b.updated-a.updated).forEach(song=>{
+    const li=document.createElement('li');
+    li.innerHTML='<div class="name"><b></b><span></span></div><button class="ld"></button><button class="rm"></button>';
+    li.querySelector('b').textContent=song.title;
+    li.querySelector('span').textContent=t('savedOn',new Date(song.updated).toLocaleDateString(lang==='id'?'id-ID':undefined));
+    li.querySelector('.ld').textContent=t('load');
+    li.querySelector('.rm').textContent=t('remove');
+    li.querySelector('.rm').setAttribute('aria-label',t('remove')+': '+song.title);
+    li.querySelector('.ld').onclick=()=>{
+      if(!okToLeave()) return;
+      curId=song.id;text=song.text;shift=song.shift||0;flats=!!song.flats;$('title').value=song.title;
+      if(editing) setMode(false);
+      history.replaceState(null,'',location.pathname);
+      setHint('hint_default');
+      render();markClean();$('lib').close();window.scrollTo(0,0);toast(t('loaded',song.title));
+    };
+    li.querySelector('.rm').onclick=()=>{
+      if(!confirm(t('deleteConfirm',song.title))) return;
+      lib=lib.filter(x=>x.id!==song.id);
+      if(curId===song.id) curId=null;
+      persist();renderLib();
+    };
+    ul.appendChild(li);
+  });
+}
+$('libbtn').onclick=()=>{renderLib();$('lib').showModal()};
+$('libclose').onclick=()=>$('lib').close();
+$('lib').addEventListener('click',e=>{if(e.target===$('lib')) $('lib').close()});
+window.addEventListener('beforeunload',e=>{if(isDirty()&&text.trim()){e.preventDefault();e.returnValue=''}});
+
+$('dl').onclick=()=>{
+  const key=shift?('-'+(shift>0?'+':'')+shift):'';
+  const name=($('title').value.trim()||'chord-sheet').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-')||'chord-sheet';
+  const blob=new Blob([transposedText()],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=name+key+'.txt';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  toast(t('downloaded',a.download));
+};
+$('open').onclick=()=>$('file').click();
+$('file').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    if(!okToLeave()){e.target.value='';return}
+    text=await f.text(); shift=0; curId=null; $('title').value=f.name.replace(/\.[^.]+$/,'');
+    if(editing) setMode(false);
+    setHint('hint_default');
+    render(); window.scrollTo(0,0); toast(t('opened',f.name));
+  }catch(err){toast(t('couldNotOpen'))}
+  e.target.value='';
+};
+
+/* ---------- full screen ---------- */
+async function toggleFocus(on){
+  on=(on===undefined)?!document.body.classList.contains('focus'):on;
+  if(on&&editing) setMode(false);
+  document.body.classList.toggle('focus',on);
+  $('full').textContent=on?t('exitFull'):t('full');
+  if(on){try{await document.documentElement.requestFullscreen()}catch(e){}}   // iPhones skip this and just get the clean view
+  else if(document.fullscreenElement){try{await document.exitFullscreen()}catch(e){}}
+  window.scrollTo(0,0);
+}
+document.addEventListener('fullscreenchange',()=>{
+  if(!document.fullscreenElement&&document.body.classList.contains('focus')) toggleFocus(false);
+});
+$('full').onclick=()=>toggleFocus();
+$('mexit').onclick=()=>toggleFocus(false);
+$('mup').onclick=()=>$('up').click();
+$('mdown').onclick=()=>$('down').click();
+$('mbigger').onclick=()=>$('bigger').click();
+$('msmaller').onclick=()=>$('smaller').click();
+
+/* ---------- autoscroll ---------- */
+let playing=false,last=0,acc=0;
+function tick(ts){
+  if(!playing) return;
+  const v=+$('speed').value;
+  acc+=(ts-last)/1000*v*v*0.3; last=ts; // pixels per second: ~0.3 at the slowest, ~120 at the fastest
+  const px=Math.floor(acc);
+  if(px>0){
+    const before=window.scrollY;
+    window.scrollBy(0,px); acc-=px;
+    if(Math.abs(window.scrollY-before)<1 && px>0){ // reached the end
+      if(window.innerHeight+window.scrollY>=document.documentElement.scrollHeight-2){stopScroll();toast(t('reachedEnd'));return}
+    }
+  }
+  requestAnimationFrame(tick);
+}
+function startScroll(){
+  if(editing) setMode(false);
+  playing=true;acc=0;last=performance.now();
+  $('play').textContent='❚❚';$('play').setAttribute('aria-label',t('playPause'));
+  requestAnimationFrame(tick);
+}
+function stopScroll(){
+  playing=false;
+  $('play').textContent='▶';$('play').setAttribute('aria-label',t('playStart'));
+}
+$('play').onclick=()=>playing?stopScroll():startScroll();
+// scrolling by hand pauses autoscroll
+['wheel','touchstart'].forEach(ev=>window.addEventListener(ev,()=>{if(playing)stopScroll()},{passive:true}));
+window.addEventListener('keydown',e=>{
+  if(editing||/INPUT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)&&e.key===' ') return;
+  if(e.key===' '){e.preventDefault();playing?stopScroll():startScroll()}
+  if(e.key==='ArrowUp'&&e.shiftKey){$('speed').value=+$('speed').value+1}
+  if(e.key==='ArrowDown'&&e.shiftKey){$('speed').value=+$('speed').value-1}
+});
+
+function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('on'),2200)}
+
+/* ---------- sharing: the song lives in the link after the # ---------- */
+const b64=u8=>{let s='';u8.forEach(b=>s+=String.fromCharCode(b));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
+const unb64=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return Uint8Array.from(atob(s),c=>c.charCodeAt(0))};
+async function encode(){
+  // compact format: "shift,flats\ntext" (no JSON wrapper), deflated when supported
+  const raw=new TextEncoder().encode(shift+','+(flats?1:0)+','+$('title').value.trim().replace(/[\r\n]+/g,' ')+'\n'+text);
+  if(window.CompressionStream){
+    const z=new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return 'y'+b64(new Uint8Array(await new Response(z).arrayBuffer()));
+  }
+  return 'q'+b64(raw);
+}
+async function decode(h){
+  let raw=unb64(h.slice(1));
+  if(h[0]==='z'||h[0]==='y'){
+    const z=new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    raw=new Uint8Array(await new Response(z).arrayBuffer());
+  }
+  const str=new TextDecoder().decode(raw);
+  if(h[0]==='y'||h[0]==='q'){
+    const i=str.indexOf('\n'),p=str.slice(0,i).split(',');
+    return {t:str.slice(i+1),s:+p[0]||0,f:p[1]==='1',n:p.slice(2).join(',')};
+  }
+  return JSON.parse(str); // old links (z / p)
+}
+$('share').onclick=async()=>{
+  if(editing) setMode(false);
+  const base=location.origin+location.pathname;
+  let url=null;
+  if(sbOn()){
+    try{
+      const id=shortId();
+      const r=await fetch(SUPABASE_URL+'/rest/v1/songs',{method:'POST',headers:{...sbHeaders(),Prefer:'return=minimal'},
+        body:JSON.stringify({id,data:{t:text,s:shift,f:flats,n:$('title').value.trim()}})});
+      if(!r.ok) throw new Error(r.status);
+      url=base+'?s='+id;
+    }catch(e){toast(t('shortFail'))}
+  }
+  if(!url) url=base+'#'+await encode();
+  try{await navigator.clipboard.writeText(url);toast(t('linkCopied'))}
+  catch(e){prompt(t('copyPrompt'),url)}
+  history.replaceState(null,'',url);
+};
+(async function init(){
+  applyLang();
+  const h=location.hash.slice(1);
+  const sid=new URLSearchParams(location.search).get('s');
+  if(sid&&sbOn()){
+    try{
+      const r=await fetch(SUPABASE_URL+'/rest/v1/songs?id=eq.'+encodeURIComponent(sid)+'&select=data',{headers:sbHeaders()});
+      const rows=await r.json();
+      if(!rows.length) throw new Error('missing');
+      const d=rows[0].data;
+      text=d.t;shift=d.s||0;flats=!!d.f;$('title').value=d.n||'';
+      setHint('hint_shared');
+    }catch(e){toast(t('linkNotLoaded'))}
+  } else if(h){
+    try{
+      const d=await decode(h);
+      text=d.t;shift=d.s||0;flats=!!d.f;$('title').value=d.n||'';
+      setHint('hint_shared');
+    }catch(e){toast(t('linkNotRead'))}
+  }
+  render();markClean();
+})();
+</script>
+</body>
+</html>
